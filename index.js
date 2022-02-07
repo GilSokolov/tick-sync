@@ -45,7 +45,7 @@ server.on('message', (msg, rinfo) => {
         if (index === -1) {
             abaliableSymbols.push(data);
             console.log('MT4 subscribed to:', data);
-            io.emit('OnSymbols', abaliableSymbols);
+            io.emit('onSymbols', abaliableSymbols);
         }
        
     }
@@ -58,7 +58,7 @@ server.on('message', (msg, rinfo) => {
         if (index !== -1) {
             abaliableSymbols.splice(index, 1);
             console.log('MT4 unsubscribed from:', data);
-            io.emit('OnSymbols', abaliableSymbols);
+            io.emit('onSymbols', abaliableSymbols);
         }
     }
     
