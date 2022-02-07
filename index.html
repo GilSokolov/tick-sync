@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    table {
+      font-family: Arial, Helvetica, sans-serif;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    
+    table td, table th {
+      border: 1px solid #ddd;
+      padding: 8px;
+      width: 100px;
+    }
+    
+    table tr:nth-child(even){background-color: #f2f2f2;}
+    
+    table tr:hover {background-color: #ddd;}
+    
+    table th {
+      padding-top: 12px;
+      padding-bottom: 12px;
+      text-align: left;
+      background-color: #04AA6D;
+      color: white;
+    }
+</style>
+
+<body>
+    <h2>Symbols:</h2>
+    <ul></ul>
+
+    <table>
+       <thead>
+           <tr>
+               <th>Symbol</th>
+               <th>Bid</th>
+               <th>Ask</th>
+               <th>High</th>
+               <th>Low</th>
+               <th>Spread</th>
+               <th>Time</th>
+           </tr>
+       </thead>
+
+       <tbody>
+       </tbody>
+    </table>
+    
+</body>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    var socket = io();
+    var symbols = {}; // rows cache
+    var tbody = document.querySelector('tbody');
+    var list = document.querySelector('ul');
+
+    const updateRow = (row, {symbol, bid, ask, high, low, spread, dateTime}) => {
+        row.innerHTML = `
+            <td>${symbol}</td>
+            <td>${bid}</td>
+            <td>${ask}</td>
+            <td>${high}</td>
+            <td>${low}</td>
+            <td>${spread}</td>
+            <td>${dateTime}</td>
+        `;
+    }
+
+    const createRow = (data) => {
+        const row = document.createElement('tr');
+        row.setAttribute('id', data.symbol);
+
+        updateRow(row, data);
+
+        return row;
+    }
+
+    const updateSymbolList = (symbols) => {
+        list.innerHTML = symbols.map(symbol => {
+            return `
+            <li>
+                <div>
+                    <input type="checkbox" id="${symbol}" name="${symbol}" onclick="onCheckboxClick(event)">
+                    <label for="${symbol}">${symbol}</label>
+                </div>
+            </li>`
+        }).join('');
+    }
+
+
+    socket.on('onTick', function(data) {
+        if (symbols[data.symbol]) {
+            updateRow(symbols[data.symbol], data);
+        } else {
+            const row = createRow(data);
+            symbols[data.symbol] = row;
+            tbody.appendChild(row);
+        }
+    });
+
+    socket.on('onSymbols', function(data) {
+        if (data?.length) {
+            // there is some bug that appends \x00 to the symbol name
+            const symbols = data.map(symbol => symbol.replace('\x00', ''));
+            updateSymbolList(symbols);
+        } 
+    });
+
+    function onCheckboxClick(checkbox) {
+        if (checkbox.target.checked) {
+            socket.emit('subscribe', checkbox.target.id);
+        } else {
+            socket.emit('unsubscribe', checkbox.target.id);
+        }
+    }
+
+</script>
+</html>
