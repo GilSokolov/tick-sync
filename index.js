@@ -77,14 +77,16 @@ app.get('/', (req, res) => {
 
 // when new user connects to the socket
 io.on('connection', (socket) => {
-    const subscriptions = {}; 
+    const callbacks = {}; 
+
+    const unsubscribe = (symbol) => {
+        subscribers.removeListener(symbol, callbacks[symbol]);
+        delete callbacks[symbol];
+    }
 
     // unsubscrive from all on disconnect
     socket.on('disconnect', () => {
-        Object.keys(subscriptions).forEach(symbol => {
-            subscriptions[symbol].removeListener();
-            delete subscriptions[symbol];
-        });
+        Object.keys(callbacks).forEach(symbol => unsubscribe(symbol));
     });
 
     // send all available symbols
@@ -92,20 +94,23 @@ io.on('connection', (socket) => {
 
     // subscribe to symbol if not subscribed
     socket.on('subscribe', (symbol) => {
-        if (!subscriptions[symbol]) {
-            subscriptions[symbol] = subscribers.on(symbol, (data) => {
+        if (!callbacks[symbol]) {
+            callbacks[symbol] = (data) => {
                 socket.emit('onTick', data)
-            });
+            }
+            
+            subscribers.on(symbol, callbacks[symbol]);
         }
     });
 
     // unsubscribe to symbol if subscribed
     socket.on('unsubscribe', (symbol) => {
-        if (subscriptions[symbol]) {
-            subscriptions[symbol].removeListener();
-            delete subscriptions[symbol];
+        if (callbacks[symbol]) {
+            unsubscribe(symbol);
         }
     });
+
+
 });
 
 httpServer.listen(3000, () => {
