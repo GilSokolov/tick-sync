@@ -5,7 +5,6 @@ const app = express();
 const http = require('http');
 const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
-const EventEmitter = require('events');
 const io = new Server(httpServer);
 
 const PORT = 41234;
@@ -13,8 +12,6 @@ const PORT = 41234;
 const server = dgram.createSocket('udp4');
 
 const abaliableSymbols = [];
-
-const subscribers = new EventEmitter();
 
 
 server.on('error', (err) => {
@@ -34,7 +31,7 @@ server.on('message', (msg, rinfo) => {
         const symbol = convertSymbolMessage(data);
         const formatedSymbols = formatSymbol(symbol);
 
-        subscribers.emit(formatedSymbols.symbol, formatedSymbols);
+        io.to(formatedSymbols.symbol).emit('onTick', formatedSymbols);
     }
 
     // when expert adviser attached to chart
@@ -77,16 +74,11 @@ app.get('/', (req, res) => {
 
 // when new user connects to the socket
 io.on('connection', (socket) => {
-    const callbacks = {}; 
-
-    const unsubscribe = (symbol) => {
-        subscribers.removeListener(symbol, callbacks[symbol]);
-        delete callbacks[symbol];
-    }
-
     // unsubscrive from all on disconnect
     socket.on('disconnect', () => {
-        Object.keys(callbacks).forEach(symbol => unsubscribe(symbol));
+        socket.rooms.forEach(room => {
+            socket.leave(room);
+        });
     });
 
     // send all available symbols
@@ -94,24 +86,16 @@ io.on('connection', (socket) => {
 
     // subscribe to symbol if not subscribed
     socket.on('subscribe', (symbol) => {
-        if (!callbacks[symbol]) {
-            callbacks[symbol] = (data) => {
-                socket.emit('onTick', data)
-            }
-            
-            subscribers.on(symbol, callbacks[symbol]);
-        }
+       socket.join(symbol);
     });
 
     // unsubscribe to symbol if subscribed
     socket.on('unsubscribe', (symbol) => {
-        if (callbacks[symbol]) {
-            unsubscribe(symbol);
-        }
+        socket.leave(symbol);
     });
-
-
 });
+
+
 
 httpServer.listen(3000, () => {
   console.log('listening on *:3000');
